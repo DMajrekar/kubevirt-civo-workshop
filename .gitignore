@@ -1,0 +1,43 @@
+# KubeVirt Workshop - Local Files
+
+# virtctl binary (downloaded locally)
+virtctl
+
+# Kubeconfig files
+*kubeconfig*
+kubeconfig
+*.kubeconfig
+config
+
+# Temporary files and directories
+*.tmp
+.tmp/
+temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Log files
+*.log
+
+# Backup files
+*.bak
+*.backup
+
+# Local environment files
+.env
+.env.local
+.env.*.local

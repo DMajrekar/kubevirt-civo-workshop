@@ -1,0 +1,20 @@
+apiVersion: kubevirt.io/v1
+kind: KubeVirt
+metadata:
+  name: kubevirt
+  namespace: kubevirt
+spec:
+  # Configuration for managed clusters without control plane access
+  infra:
+    nodePlacement:
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations: []
+  workloads:
+    nodePlacement:
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations: []
+  # Remove control plane requirements
+  certificateRotateStrategy: {}
+  imagePullPolicy: IfNotPresent

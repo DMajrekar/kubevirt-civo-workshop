@@ -2,9 +2,16 @@
 
 This workshop demonstrates how to run virtual machines (VMs) on Kubernetes using KubeVirt and Civo's managed Kubernetes platform. You'll learn to create VMs, deploy services within them, and establish bidirectional communication between VMs and Kubernetes cluster services.
 
+## Architecture Overview
+
+![Workshop Architecture](workshop-architecture-diagram.png)
+
+This diagram shows the complete workshop architecture, demonstrating how VMs integrate with Kubernetes services, storage, and external access through Civo's LoadBalancer.
+
 ## Workshop Overview
 
 By the end of this workshop, you will have:
+
 - Created a Kubernetes cluster on Civo
 - Installed and configured KubeVirt
 - Created and managed virtual machines in Kubernetes
@@ -15,9 +22,37 @@ By the end of this workshop, you will have:
 ## Prerequisites
 
 Before starting this workshop, ensure you have:
+
 - **Civo workshop account** - Sign up at [civo.com](https://www.civo.com)
 - **kubectl** - Kubernetes command-line tool ([installation guide](https://kubernetes.io/docs/tasks/tools/))
 - **virtctl** - We'll guide you through the installation during the workshop
+
+## Getting Started
+
+1. **Clone this repository**
+   ```bash
+   git clone https://github.com/your-username/kubevirt-civo-workshop.git
+   cd kubevirt-civo-workshop
+   ```
+
+## Workshop File Structure
+
+```
+kubevirt-civo-workshop/
+├── manifests/           # Kubernetes YAML files
+│   ├── testvm.yaml
+│   ├── testvm-service.yaml
+│   ├── testvm-loadbalancer.yaml
+│   └── test-app.yaml
+├── scripts/             # Helper scripts
+│   ├── setup-kubevirt.sh
+│   ├── install-virtctl.sh
+│   └── verify-setup.sh
+├── docs/                # Additional documentation
+│   └── troubleshooting.md
+├── CLAUDE.md            # Claude Code automation
+└── README.md            # This workshop guide
+```
 
 ## Workshop Steps
 
@@ -36,16 +71,19 @@ Before starting this workshop, ensure you have:
    - Click "Create cluster" and wait for provisioning (typically 2-3 minutes)
 
 2. **Download Kubeconfig**
+
    - Once cluster is ready, click on your cluster name
    - Download the kubeconfig file
    - Save it to a secure location (e.g., `~/Downloads/kubevirt-workshop-kubeconfig`)
 
 3. **Set KUBECONFIG Environment Variable**
+
    ```bash
    export KUBECONFIG=~/Downloads/kubevirt-workshop-kubeconfig
    ```
 
 4. **Verify Cluster Access**
+
    ```bash
    kubectl cluster-info
    kubectl get nodes
@@ -57,142 +95,246 @@ Before starting this workshop, ensure you have:
 
 **Goal**: Install KubeVirt operator and verify it's running
 
-1. **Get Latest KubeVirt Version**
+1. **Run KubeVirt Setup Script**
+   ```bash
+   ./scripts/setup-kubevirt.sh
+   ```
+
+   This script will:
+   - Deploy kernel modules DaemonSet (loads `tun` and `vhost-net` modules)
+   - Wait for kernel modules to be ready on all nodes
+   - Download the latest KubeVirt version
+   - Deploy the KubeVirt operator
+   - Create the KubeVirt CR (with managed cluster compatibility)
+   - Wait for the installation to complete
+   - Verify the installation status
+
+2. **Manual Installation (Alternative)**
+   If you prefer to run commands manually:
+
+   a) **Deploy Kernel Modules First** (required for all clusters):
+   ```bash
+   # Deploy kernel modules DaemonSet
+   kubectl apply -f manifests/kernel-modules-daemonset.yaml
+
+   # Wait for modules to be loaded on all nodes
+   kubectl rollout status daemonset/kubevirt-kernel-modules -n kube-system --timeout=300s
+   ```
+
+   b) **Standard Clusters** (with control plane access):
    ```bash
    export VERSION=$(curl -s https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirt/stable.txt)
-   echo $VERSION
+   kubectl apply -f "https://github.com/kubevirt/kubevirt/releases/download/${VERSION}/kubevirt-operator.yaml"
+   kubectl apply -f "https://github.com/kubevirt/kubevirt/releases/download/${VERSION}/kubevirt-cr.yaml"
+   kubectl wait --for=condition=Available kubevirt kubevirt --namespace=kubevirt --timeout=10m
+
+   # Wait for fully deployed status
+   kubectl get kubevirt kubevirt -n kubevirt -o jsonpath="{.status.phase}"
    ```
 
-2. **Deploy KubeVirt Operator**
+   c) **Managed Clusters** (like Civo - no control plane access):
    ```bash
-   kubectl create -f "https://github.com/kubevirt/kubevirt/releases/download/${VERSION}/kubevirt-operator.yaml"
+   export VERSION=$(curl -s https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirt/stable.txt)
+   kubectl apply -f "https://github.com/kubevirt/kubevirt/releases/download/${VERSION}/kubevirt-operator.yaml"
+
+   # Use the managed cluster compatible CR
+   kubectl apply -f manifests/kubevirt-cr-managed.yaml
+
+   # Or apply and patch the standard CR
+   # kubectl apply -f "https://github.com/kubevirt/kubevirt/releases/download/${VERSION}/kubevirt-cr.yaml"
+   # kubectl patch kubevirt kubevirt -n kubevirt --type='merge' -p='{"spec":{"infra":{"nodePlacement":{"nodeSelector":{"kubernetes.io/os":"linux"},"tolerations":[]}},"workloads":{"nodePlacement":{"nodeSelector":{"kubernetes.io/os":"linux"},"tolerations":[]}}}}'
+
+   kubectl wait --for=condition=Available kubevirt kubevirt --namespace=kubevirt --timeout=10m
+
+   # Verify deployment phase
+   kubectl get kubevirt kubevirt -n kubevirt -o jsonpath="{.status.phase}"
    ```
 
-3. **Create KubeVirt CR**
+3. **Verify Installation**
    ```bash
-   kubectl create -f "https://github.com/kubevirt/kubevirt/releases/download/${VERSION}/kubevirt-cr.yaml"
+   # Should show "Deployed"
+   kubectl get kubevirt kubevirt -n kubevirt -o jsonpath="{.status.phase}"
+
+   # All pods should be Running
+   kubectl get pods -n kubevirt
    ```
-
-4. **Verify Installation**
-   ```bash
-   # Check KubeVirt status (should show "Deployed")
-   kubectl get kubevirt.kubevirt.io/kubevirt -n kubevirt -o=jsonpath="{.status.phase}"
-
-   # Check all components
-   kubectl get all -n kubevirt
-   ```
-
-   Wait until all pods are in Running state before proceeding.
 
 ### 3. virtctl Setup
 
 **Goal**: Install virtctl CLI for VM management
 
-1. **Install virtctl Binary**
+1. **Run virtctl Installation Script**
    ```bash
-   VERSION=$(kubectl get kubevirt.kubevirt.io/kubevirt -n kubevirt -o=jsonpath="{.status.observedKubeVirtVersion}")
-   ARCH=$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/amd64/') || windows-amd64.exe
-   echo ${ARCH}
+   ./scripts/install-virtctl.sh
+   ```
+
+   This script will:
+   - Detect your system architecture
+   - Download the correct virtctl version to the current directory
+   - Make it executable
+   - Verify the download
+
+2. **Manual virtctl Installation (Alternative)**
+   If you prefer to download virtctl manually:
+   ```bash
+   # Get the KubeVirt version
+   VERSION=$(kubectl get kubevirt kubevirt -n kubevirt -o jsonpath="{.status.observedKubeVirtVersion}")
+
+   # Detect architecture
+   ARCH=$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/amd64/')
+
+   # Download to current directory
    curl -L -o virtctl https://github.com/kubevirt/kubevirt/releases/download/${VERSION}/virtctl-${VERSION}-${ARCH}
    chmod +x virtctl
-   sudo install virtctl /usr/local/bin
+
+   # Verify
+   ./virtctl version
    ```
 
-2. **Verify Installation**
+3. **Verify Setup**
    ```bash
-   virtctl version
+   ./scripts/verify-setup.sh
    ```
 
-### 4. Virtual Machine Creation
+   This will check that kubectl, cluster connectivity, KubeVirt, and virtctl are all working properly.
 
-**Goal**: Create and manage your first VM (following KubeVirt Lab 1)
+### 4. CDI Installation (Optional - for Full Linux VMs)
 
-1. **Create VM Manifest**
-   Create a file called `testvm.yaml`:
-   ```yaml
-   apiVersion: kubevirt.io/v1
-   kind: VirtualMachine
-   metadata:
-     name: testvm
-   spec:
-     running: false
-     template:
-       metadata:
-         labels:
-           kubevirt.io/size: small
-           kubevirt.io/domain: testvm
-       spec:
-         domain:
-           devices:
-             disks:
-             - name: containerdisk
-               disk:
-                 bus: virtio
-             - name: cloudinitdisk
-               disk:
-                 bus: virtio
-             interfaces:
-             - name: default
-               masquerade: {}
-           resources:
-             requests:
-               memory: 64M
-         networks:
-         - name: default
-           pod: {}
-         volumes:
-         - name: containerdisk
-           containerDisk:
-             image: quay.io/kubevirt/cirros-container-disk-demo
-         - name: cloudinitdisk
-           cloudInitNoCloud:
-             userDataBase64: SGkuXG4=
-   ```
+**Goal**: Install CDI (Containerized Data Importer) for importing cloud images
 
-2. **Deploy VM**
+CDI allows you to create VMs from cloud images (like Ubuntu, Fedora) instead of minimal container images. This provides full Linux environments with package managers and standard tools.
+
+1. **Run CDI Setup Script**
    ```bash
-   kubectl apply -f testvm.yaml
+   ./scripts/setup-cdi.sh
    ```
 
-3. **Start the VM**
+   This script will:
+   - Download and install the latest CDI operator
+   - Create the CDI custom resource
+   - Wait for CDI to be fully deployed
+   - Verify the installation
+
+2. **Manual CDI Installation (Alternative)**
    ```bash
-   virtctl start testvm
+   # Get latest CDI version
+   export VERSION=$(basename $(curl -s -w %{redirect_url} https://github.com/kubevirt/containerized-data-importer/releases/latest))
+
+   # Install CDI operator and CR
+   kubectl create -f "https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-operator.yaml"
+   kubectl create -f "https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-cr.yaml"
+
+   # Verify installation
+   kubectl get cdi cdi -n cdi
+   kubectl get pods -n cdi
    ```
 
-4. **Check VM Status**
+3. **Create Ubuntu DataVolume**
+   ```bash
+   kubectl apply -f manifests/ubuntu-datavolume.yaml
+
+   # Monitor the import process
+   kubectl get datavolume ubuntu -w
+   ```
+
+   **Note**: The DataVolume will download a Ubuntu 24.04 LTS cloud image. This may take several minutes depending on your internet connection.
+
+### 5. Virtual Machine Creation
+
+**Goal**: Create and manage your first VM
+
+You have two options:
+
+#### Option A: Quick CirrOS VM (Lightweight)
+
+1. **Deploy VM**
+   ```bash
+   kubectl apply -f manifests/testvm.yaml
+   ```
+
+2. **Start the VM**
+   ```bash
+   ./virtctl start testvm
+   ```
+
+3. **Check VM Status**
    ```bash
    kubectl get vms
    kubectl get vmis
    ```
 
-5. **Connect to VM Console** (optional)
+4. **Connect to VM Console** (optional)
    ```bash
-   virtctl console testvm
+   ./virtctl console testvm
    ```
 
-   Press `Ctrl+]` to disconnect from console.
+   Login with `cirros` / `gocubsgo`. Press `Ctrl+]` to disconnect.
 
-### 5. Deploy Service within VM
+#### Option B: Full Ubuntu VM (Requires CDI)
+
+1. **Deploy Ubuntu VM** (after DataVolume is ready)
+   ```bash
+   kubectl apply -f manifests/ubuntu-vm.yaml
+   ```
+
+2. **Start the VM**
+   ```bash
+   ./virtctl start ubuntu-vm
+   ```
+
+3. **Check VM Status**
+   ```bash
+   kubectl get vms
+   kubectl get vmis
+   ```
+
+4. **Connect to VM Console**
+   ```bash
+   ./virtctl console ubuntu-vm
+   ```
+
+   Login with `ubuntu` / `ubuntu`. Press `Ctrl+]` to disconnect.
+
+### 6. Deploy Service within VM
 
 **Goal**: Run an application inside the virtual machine
 
+#### For CirrOS VM (Option A):
+
 1. **Access VM**
    ```bash
-   virtctl console testvm
+   ./virtctl console testvm
    ```
 
-2. **Install and Configure Simple Web Server**
-   Once connected to the VM:
+2. **Note about CirrOS limitations**
    ```bash
    # Login with cirros/gocubsgo
-   sudo su -
 
-   # Install a simple HTTP server
-   echo "Hello from KubeVirt VM!" > /tmp/index.html
+   # CirrOS is a minimal image without Python or web servers
+   # For HTTP services, use the Fedora VM option instead
+   echo "Hello from CirrOS VM!" > /tmp/index.html
+   cat /tmp/index.html
+   ```
 
-   # Start simple HTTP server on port 8080
+   **Note**: CirrOS doesn't have Python or web server tools. For HTTP service demos, use Option B (Ubuntu VM).
+
+#### For Ubuntu VM (Option B):
+
+1. **Access VM**
+   ```bash
+   ./virtctl console ubuntu-vm
+   ```
+
+2. **Install and Configure Web Server**
+   ```bash
+   # Login with ubuntu/ubuntu
+
+   # Create content
+   echo "Hello from Ubuntu VM!" > /tmp/index.html
+
+   # Start Python HTTP server
    cd /tmp
-   python -m SimpleHTTPServer 8080 &
+   python3 -m http.server 8080 &
    ```
 
 3. **Test Service from Within VM**
@@ -200,101 +342,49 @@ Before starting this workshop, ensure you have:
    curl localhost:8080
    ```
 
-   You should see "Hello from KubeVirt VM!" response.
-
 4. **Exit VM Console**
    Press `Ctrl+]` to disconnect.
 
-### 6. Expose VM Service via Kubernetes
+### 7. Expose VM Service via Kubernetes
 
 **Goal**: Make VM service accessible through Kubernetes Service
 
-1. **Create Kubernetes Service**
-   Create `testvm-service.yaml`:
-   ```yaml
-   apiVersion: v1
-   kind: Service
-   metadata:
-     name: testvm-service
-   spec:
-     selector:
-       kubevirt.io/domain: testvm
-     ports:
-     - protocol: TCP
-       port: 80
-       targetPort: 8080
-     type: ClusterIP
-   ```
-
-2. **Apply Service**
+1. **Apply Service**
    ```bash
-   kubectl apply -f testvm-service.yaml
+   kubectl apply -f manifests/testvm-service.yaml
    ```
 
-3. **Test Internal Access**
+2. **Test Internal Access**
    ```bash
-   # Create a test pod to access the service
-   kubectl run test-pod --image=busybox --rm -it --restart=Never -- sh
-
-   # Inside the test pod:
-   wget -qO- http://testvm-service
-   exit
+   # Create a test pod to access the service directly
+   kubectl run test-pod --image=busybox --rm -it --restart=Never -- wget -qO- http://ubuntu-vm-service
    ```
 
-### 7. Cluster to VM Communication
+### 8. Cluster to VM Communication
 
 **Goal**: Demonstrate Kubernetes services can interact with VM services
 
-1. **Deploy Test Application**
-   Create `test-app.yaml`:
-   ```yaml
-   apiVersion: apps/v1
-   kind: Deployment
-   metadata:
-     name: test-app
-   spec:
-     replicas: 1
-     selector:
-       matchLabels:
-         app: test-app
-     template:
-       metadata:
-         labels:
-           app: test-app
-       spec:
-         containers:
-         - name: test-app
-           image: busybox
-           command: ['sleep', '3600']
-   ```
+**Test Communication from Pod to VM**
+```bash
+# Create a temporary pod that fetches content from the VM service
+kubectl run test-pod --image=busybox --rm -it --restart=Never -- wget -qO- http://ubuntu-vm-service
+```
 
-2. **Deploy Application**
-   ```bash
-   kubectl apply -f test-app.yaml
-   ```
+You should see "Hello from Ubuntu VM!" response, demonstrating successful communication from cluster pods to the VM service.
 
-3. **Test Communication from Pod to VM**
-   ```bash
-   kubectl exec -it deployment/test-app -- sh
-
-   # Inside the pod:
-   wget -qO- http://testvm-service
-   exit
-   ```
-
-### 8. VM to Cluster Communication
+### 9. VM to Cluster Communication
 
 **Goal**: Show VM can access Kubernetes cluster services
 
 1. **Create a Simple Cluster Service**
    ```bash
    kubectl create deployment nginx --image=nginx
-   kubectl expose deployment nginx --port=80 --name=nginx-service
+   kubectl apply -f manifests/nginx-service.yaml
    ```
 
 2. **Test from VM**
    ```bash
-   virtctl console testvm
+   ./virtctl console testvm
 
    # Inside the VM:
    curl nginx-service.default.svc.cluster.local
@@ -302,30 +392,13 @@ Before starting this workshop, ensure you have:
 
    This demonstrates the VM can resolve and access Kubernetes services.
 
-### 9. Expose VM Service to Internet
+### 10. Expose VM Service to Internet
 
 **Goal**: Make VM service accessible from the internet using LoadBalancer
 
-1. **Create LoadBalancer Service**
-   Create `testvm-loadbalancer.yaml`:
-   ```yaml
-   apiVersion: v1
-   kind: Service
-   metadata:
-     name: testvm-loadbalancer
-   spec:
-     selector:
-       kubevirt.io/domain: testvm
-     ports:
-     - protocol: TCP
-       port: 80
-       targetPort: 8080
-     type: LoadBalancer
-   ```
-
-2. **Apply LoadBalancer Service**
+1. **Apply LoadBalancer Service**
    ```bash
-   kubectl apply -f testvm-loadbalancer.yaml
+   kubectl apply -f manifests/testvm-loadbalancer.yaml
    ```
 
 3. **Get External IP**
@@ -349,9 +422,18 @@ When you're done with the workshop:
 
 1. **Delete Resources**
    ```bash
-   kubectl delete vm testvm
-   kubectl delete svc testvm-service testvm-loadbalancer nginx-service
-   kubectl delete deployment test-app nginx
+   # Delete VMs
+   kubectl delete vm ubuntu-vm testvm
+
+   # Delete services
+   kubectl delete svc ubuntu-vm-service ubuntu-vm-loadbalancer
+   kubectl delete -f manifests/nginx-service.yaml
+
+   # Delete deployments
+   kubectl delete deployment nginx
+
+   # Delete DataVolume (optional - also deletes PVC)
+   kubectl delete datavolume ubuntu
    ```
 
 2. **Delete Cluster**
@@ -361,7 +443,9 @@ When you're done with the workshop:
 
 ## Troubleshooting
 
-### Common Issues
+For detailed troubleshooting information, see [docs/troubleshooting.md](docs/troubleshooting.md).
+
+### Quick Fixes
 
 1. **VM Won't Start**
    ```bash

@@ -1,0 +1,55 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: ubuntu-vm
+  labels:
+    app: workshop
+    os: ubuntu
+spec:
+  running: false
+  template:
+    metadata:
+      labels:
+        kubevirt.io/size: medium
+        kubevirt.io/domain: ubuntu-vm
+        os: ubuntu
+    spec:
+      domain:
+        devices:
+          disks:
+          - name: rootdisk
+            disk:
+              bus: virtio
+          - name: cloudinitdisk
+            disk:
+              bus: virtio
+          interfaces:
+          - name: default
+            masquerade: {}
+        resources:
+          requests:
+            memory: 1Gi
+            cpu: 1
+      networks:
+      - name: default
+        pod: {}
+      volumes:
+      - name: rootdisk
+        dataVolume:
+          name: ubuntu
+      - name: cloudinitdisk
+        cloudInitNoCloud:
+          userData: |
+            #cloud-config
+            user: ubuntu
+            password: ubuntu
+            chpasswd: { expire: False }
+            ssh_pwauth: True
+            package_update: true
+            packages:
+              - python3
+              - python3-pip
+              - curl
+            runcmd:
+              - echo "Welcome to Ubuntu VM for KubeVirt Workshop!" > /home/ubuntu/welcome.txt
+              - chown ubuntu:ubuntu /home/ubuntu/welcome.txt

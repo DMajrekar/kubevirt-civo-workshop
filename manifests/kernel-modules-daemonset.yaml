@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kubevirt-kernel-modules
+  namespace: kube-system
+  labels:
+    app: kubevirt-kernel-modules
+spec:
+  selector:
+    matchLabels:
+      app: kubevirt-kernel-modules
+  template:
+    metadata:
+      labels:
+        app: kubevirt-kernel-modules
+    spec:
+      hostPID: true
+      hostNetwork: true
+      containers:
+      - name: kernel-modules
+        image: alpine:3.18
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Loading kernel modules for KubeVirt..."
+
+          # Load tun module
+          if modprobe tun; then
+            echo "✅ tun module loaded successfully"
+          else
+            echo "❌ Failed to load tun module"
+            exit 1
+          fi
+
+          # Load vhost-net module
+          if modprobe vhost-net; then
+            echo "✅ vhost-net module loaded successfully"
+          else
+            echo "❌ Failed to load vhost-net module"
+            exit 1
+          fi
+
+          # Verify modules are loaded
+          echo "Verifying modules..."
+          lsmod | grep -E "(tun|vhost)" || echo "Warning: modules not visible in lsmod"
+
+          echo "Kernel modules loaded. Keeping container running..."
+          # Keep container running
+          while true; do
+            sleep 300
+            echo "Kernel modules still active ($(date))"
+          done
+        securityContext:
+          privileged: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+        volumeMounts:
+        - name: lib-modules
+          mountPath: /lib/modules
+          readOnly: true
+        - name: proc
+          mountPath: /host/proc
+          readOnly: true
+      tolerations:
+      # Ensure it runs on all nodes including control plane
+      - operator: Exists
+      volumes:
+      - name: lib-modules
+        hostPath:
+          path: /lib/modules
+      - name: proc
+        hostPath:
+          path: /proc
+      restartPolicy: Always
