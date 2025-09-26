@@ -33,7 +33,7 @@ kubectl delete -f "https://github.com/kubevirt/kubevirt/releases/download/${VERS
 kubectl delete -f "https://github.com/kubevirt/kubevirt/releases/download/${VERSION}/kubevirt-cr.yaml"
 
 # Wait a moment and reinstall
-./scripts/setup-kubevirt.sh
+./step-02-kubevirt-installation/setup-kubevirt.sh
 ```
 
 ### KubeVirt stuck in "Deploying" phase
@@ -134,7 +134,7 @@ kubectl logs -n kube-system -l app=kubevirt-kernel-modules
 
 # If needed, redeploy the DaemonSet
 kubectl delete daemonset kubevirt-kernel-modules -n kube-system
-kubectl apply -f manifests/kernel-modules-daemonset.yaml
+kubectl apply -f step-02-kubevirt-installation/kernel-modules-daemonset.yaml
 ```
 
 ### VM fails to start

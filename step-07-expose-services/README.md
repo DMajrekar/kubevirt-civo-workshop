@@ -6,6 +6,16 @@
 - Ubuntu VM is running (from Step 5)
 - Web service is running inside the VM on port 8080 (from Step 6)
 
+## Prerequisites Check
+Verify the Ubuntu VM and web service are ready:
+```bash
+# Check Ubuntu VM is running
+kubectl get vmi ubuntu-vm
+
+# Verify VM has an IP address
+kubectl get vmi ubuntu-vm -o jsonpath='{.status.interfaces[0].ipAddress}'
+```
+
 ## Apply Service
 
 Create a Kubernetes service to expose the VM:

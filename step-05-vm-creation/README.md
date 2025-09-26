@@ -6,6 +6,16 @@
 - CDI must be installed (Step 4)
 - CDI status should show "Deployed"
 
+## Prerequisites Check
+Verify CDI is ready before proceeding:
+```bash
+# Check CDI status (should show "Deployed")
+kubectl get cdi cdi -n cdi -o jsonpath="{.status.phase}"
+
+# Verify CDI pods are running
+kubectl get pods -n cdi
+```
+
 ## Create Ubuntu DataVolume
 
 DataVolumes automatically download and import cloud images:

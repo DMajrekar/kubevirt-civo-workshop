@@ -1,6 +1,8 @@
-# Step 4: CDI Installation (Optional)
+# Step 4: CDI Installation (Required for Steps 5-9)
 
 **Goal**: Install CDI (Containerized Data Importer) for importing cloud images
+
+> **Note**: CDI is required for Steps 5-9 of this workshop, as they use Ubuntu VMs that depend on CDI's DataVolume functionality.
 
 ## Why CDI?
 

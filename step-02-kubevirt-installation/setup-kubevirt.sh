@@ -6,7 +6,7 @@ echo "🚀 Setting up KubeVirt..."
 
 # Deploy kernel modules DaemonSet first
 echo "🔧 Deploying kernel modules DaemonSet..."
-kubectl apply -f manifests/kernel-modules-daemonset.yaml
+kubectl apply -f kernel-modules-daemonset.yaml
 
 # Wait for DaemonSet to be ready on all nodes
 echo "⏳ Waiting for kernel modules to be loaded on all nodes..."
@@ -37,8 +37,8 @@ kubectl apply -f "https://github.com/kubevirt/kubevirt/releases/download/${VERSI
 if [ "$MANAGED_CLUSTER" = true ]; then
     echo "🔧 Creating KubeVirt CR for managed cluster..."
     # Check if we're running from the repo directory
-    if [ -f "manifests/kubevirt-cr-managed.yaml" ]; then
-        kubectl apply -f manifests/kubevirt-cr-managed.yaml
+    if [ -f "kubevirt-cr-managed.yaml" ]; then
+        kubectl apply -f kubevirt-cr-managed.yaml
     else
         echo "⚠️  Custom CR not found, downloading and patching standard CR..."
         # Download standard CR and apply custom node placement

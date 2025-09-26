@@ -2,6 +2,16 @@
 
 **Goal**: Install KubeVirt operator and verify it's running
 
+## Prerequisites Check
+Before starting, verify your cluster is ready:
+```bash
+# Check cluster connectivity
+kubectl cluster-info
+
+# Verify nodes are ready
+kubectl get nodes
+```
+
 ## Automated Installation (Recommended)
 
 Run the KubeVirt setup script:

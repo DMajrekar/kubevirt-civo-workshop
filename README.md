@@ -33,7 +33,7 @@ Before starting this workshop, ensure you have:
 
 1. **Clone this repository**
    ```bash
-   git clone https://github.com/your-username/kubevirt-civo-workshop.git
+   git clone https://github.com/DMajrekar/kubevirt-civo-workshop.git
    cd kubevirt-civo-workshop
    ```
 
