@@ -13,7 +13,7 @@ kubectl delete vm ubuntu-vm testvm
 ### 2. Delete Services
 ```bash
 # Delete VM services
-kubectl delete svc ubuntu-vm-service testvm-loadbalancer
+kubectl delete svc ubuntu-vm-service ubuntu-vm-loadbalancer
 
 # Delete test services
 kubectl delete svc nginx-service

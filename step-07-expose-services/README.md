@@ -20,7 +20,7 @@ kubectl get vmi ubuntu-vm -o jsonpath='{.status.interfaces[0].ipAddress}'
 
 Create a Kubernetes service to expose the VM:
 ```bash
-kubectl apply -f testvm-service.yaml
+kubectl apply -f ubuntu-vm-service.yaml
 ```
 
 This creates a ClusterIP service that maps to the VM's IP address.
@@ -90,7 +90,7 @@ The service is now available at:
 - **Port**: 80 (mapped to VM's port 8080)
 
 ## Files in this step
-- `testvm-service.yaml` - Kubernetes Service definition for VM
+- `ubuntu-vm-service.yaml` - Kubernetes Service definition for VM
 
 ## Next Step
 Now let's test the reverse: VM accessing Kubernetes cluster services. Proceed to [Step 8: VM to Cluster Communication](../step-08-vm-to-cluster/).

@@ -9,7 +9,7 @@
 ## Apply LoadBalancer Service
 
 ```bash
-kubectl apply -f testvm-loadbalancer.yaml
+kubectl apply -f ubuntu-vm-loadbalancer.yaml
 ```
 
 This creates a LoadBalancer service that:
@@ -21,15 +21,15 @@ This creates a LoadBalancer service that:
 
 Wait for the external IP to be assigned:
 ```bash
-kubectl get svc testvm-loadbalancer -w
+kubectl get svc ubuntu-vm-loadbalancer -w
 ```
 
 **Note**: On Civo, it may take 2-5 minutes for the external IP to be provisioned.
 
 You should see output like:
 ```
-NAME                 TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)        AGE
-testvm-loadbalancer  LoadBalancer   10.43.xxx.xxx  91.xxx.xxx.xxx  80:xxxxx/TCP   2m
+NAME                     TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)        AGE
+ubuntu-vm-loadbalancer   LoadBalancer   10.43.xxx.xxx  91.xxx.xxx.xxx  80:xxxxx/TCP   2m
 ```
 
 ## Test External Access
@@ -62,15 +62,15 @@ Internet → LoadBalancer → Kubernetes Service → VM Service (port 8080)
 
 ### LoadBalancer External IP Pending
 - This is normal on Civo, wait 2-5 minutes
-- Check service status: `kubectl describe svc testvm-loadbalancer`
+- Check service status: `kubectl describe svc ubuntu-vm-loadbalancer`
 
 ### Service Not Accessible
 - Verify VM is running: `kubectl get vmis`
-- Check service endpoints: `kubectl get endpoints testvm-loadbalancer`
+- Check service endpoints: `kubectl get endpoints ubuntu-vm-loadbalancer`
 - Test internal connectivity first (Step 7)
 
 ## Files in this step
-- `testvm-loadbalancer.yaml` - LoadBalancer service definition
+- `ubuntu-vm-loadbalancer.yaml` - LoadBalancer service definition
 
 ## Next Step
 Congratulations! You've successfully exposed a VM service to the internet. When you're ready to clean up all resources, proceed to [Step 99: Cleanup](../step-99-cleanup/).
