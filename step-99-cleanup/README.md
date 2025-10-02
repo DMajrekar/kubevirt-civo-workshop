@@ -21,7 +21,7 @@ kubectl delete svc nginx-service
 
 ### 3. Delete Deployments
 ```bash
-# Delete test deployments
+# Delete test deployments (alternatively: kubectl delete -f ../step-08-vm-to-cluster/nginx-deployment.yaml)
 kubectl delete deployment nginx
 ```
 

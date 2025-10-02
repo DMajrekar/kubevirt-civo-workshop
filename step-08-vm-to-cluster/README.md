@@ -7,7 +7,7 @@
 First, let's create a simple web service in the cluster:
 
 ```bash
-kubectl create deployment nginx --image=nginx
+kubectl apply -f nginx-deployment.yaml
 kubectl apply -f nginx-service.yaml
 ```
 
@@ -66,7 +66,8 @@ This bidirectional communication enables:
 - **Data processing**: VMs processing data from cluster services
 
 ## Files in this step
-- `nginx-service.yaml` - Simple nginx service for testing
+- `nginx-deployment.yaml` - Nginx deployment for testing
+- `nginx-service.yaml` - Service exposing the nginx deployment
 
 ## Next Step
 Now let's expose the VM service to the internet using a LoadBalancer. Proceed to [Step 9: External Access](../step-09-external-access/).
